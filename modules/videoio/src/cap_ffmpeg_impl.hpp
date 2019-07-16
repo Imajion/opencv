@@ -505,6 +505,7 @@ struct CvCapture_FFMPEG
     AVFrame         * picture;
     AVFrame           rgb_picture;
     int64_t           picture_pts;
+    int64_t           frame_errors;
 
     AVPacket          packet;
     Image_FFMPEG      frame;
@@ -547,6 +548,7 @@ void CvCapture_FFMPEG::init()
 
     avcodec = 0;
     frame_number = 0;
+    frame_errors = 0;
     eps_zero = 0.000025;
 
 #if LIBAVFORMAT_BUILD >= CALC_FFMPEG_VERSION(52, 111, 0)
@@ -1065,6 +1067,7 @@ bool CvCapture_FFMPEG::grabFrame()
         }
         else
         {
+            frame_errors++;
             count_errs++;
             if (count_errs > max_number_of_attempts)
                 break;
@@ -1167,6 +1170,9 @@ double CvCapture_FFMPEG::getProperty( int property_id ) const
     switch( property_id )
     {
     case CV_FFMPEG_CAP_PROP_POS_MSEC:
+        if (AV_NOPTS_VALUE_ != picture_pts)
+             return (double)(picture_pts - ic->streams[video_stream]->start_time) *
+                     r2d(ic->streams[video_stream]->time_base) * 1000.0;
         return 1000.0*(double)frame_number/get_fps();
     case CV_FFMPEG_CAP_PROP_POS_FRAMES:
         return (double)frame_number;
@@ -1205,6 +1211,8 @@ double CvCapture_FFMPEG::getProperty( int property_id ) const
         return _opencv_ffmpeg_get_sample_aspect_ratio(ic->streams[video_stream]).num;
     case CV_FFMPEG_CAP_PROP_SAR_DEN:
         return _opencv_ffmpeg_get_sample_aspect_ratio(ic->streams[video_stream]).den;
+    case CV_FFMPEG_CAP_PROP_FRAME_ERRORS:
+         return frame_errors;
     default:
         break;
     }
